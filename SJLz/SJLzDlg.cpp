@@ -7,6 +7,9 @@
 #include "SJLz.h"
 #include "SJLzDlg.h"
 #include "afxdialogex.h"
+#include "Dialog1.h"
+#include "CDialog2.h"
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -66,7 +69,20 @@ END_MESSAGE_MAP()
 
 
 
-// CSJLzDlg 对话框
+#include <vector>
+
+static void GetSelectedPaths(CMFCShellListCtrl& list, std::vector<CString>& out)
+{
+	out.clear();
+	int i = -1;
+	while ((i = list.GetNextItem(i, LVNI_SELECTED)) != -1)
+	{
+		CString path;
+		if (list.GetItemPath(path, i) && !path.IsEmpty())
+			out.push_back(path);
+	}
+}
+
 
 
 
@@ -182,8 +198,59 @@ HCURSOR CSJLzDlg::OnQueryDragIcon()
 
 
 
-void CSJLzDlg::OnBnClickedButton1() {}
-void CSJLzDlg::OnBnClickedButton2() {}
+void CSJLzDlg::OnBnClickedButton1()
+{
+	std::vector<CString> selected;
+	GetSelectedPaths(m_list1, selected);
+
+	if (selected.empty())
+	{
+		AfxMessageBox(_T("请先选择文件或文件夹。"));
+		return;
+	}
+
+	CString curFolder;
+	if (!m_list1.GetCurrentFolder(curFolder) || curFolder.IsEmpty())
+	{
+		// 兜底：用第一个选中项的父目录
+		curFolder = selected[0];
+		int pos = curFolder.ReverseFind(_T('\\'));
+		if (pos > 0) curFolder = curFolder.Left(pos);
+	}
+
+	Dialog1 dlg(selected, curFolder, this);  // ✅ 第二个参数是 CString
+	dlg.DoModal();
+}
+
+
+void CSJLzDlg::OnBnClickedButton2()
+{
+	std::vector<CString> selected;
+	GetSelectedPaths(m_list1, selected);
+
+	if (selected.empty())
+	{
+		AfxMessageBox(_T("请先选择文件。"));
+		return;
+	}
+
+	// 只保留 .SJL 文件
+	std::vector<CString> sjlFiles;
+	for (auto& s : selected)
+	{
+		if (s.Right(4).CompareNoCase(_T(".SJL")) == 0)
+			sjlFiles.push_back(s);
+	}
+
+	if (sjlFiles.empty())
+	{
+		AfxMessageBox(_T("请选择 .SJL 文件。"));
+		return;
+	}
+
+	CDialog2 dlg(sjlFiles, this);
+	dlg.DoModal();
+}
 void CSJLzDlg::OnBnClickedButton3() {}
 void CSJLzDlg::OnBnClickedButton4() {}
 void CSJLzDlg::OnBnClickedButton5() {}
