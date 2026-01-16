@@ -5,6 +5,7 @@
 
 
 
+
 class CSJLzDlg : public CDialogEx
 {
 public:

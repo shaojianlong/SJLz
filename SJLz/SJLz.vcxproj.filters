@@ -33,6 +33,15 @@
     <ClInclude Include="pch.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Dialog1.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="SJL.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CDialog2.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SJLz.cpp">
@@ -42,6 +51,15 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog1.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SJL.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CDialog2.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
