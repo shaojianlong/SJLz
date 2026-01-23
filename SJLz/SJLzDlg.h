@@ -1,7 +1,12 @@
 ﻿// SJLzDlg.h
 #pragma once
+#pragma comment(lib, "Shlwapi.lib")
+
 #include <afxshelllistctrl.h> 
 #include <afxcmn.h>   // 常用通知结构：NMHDR、NMLISTVIEW、NMITEMACTIVATE 等
+#include <Shlwapi.h>
+#include <ShlObj.h>
+#pragma comment(lib, "Shell32.lib")
 
 
 
@@ -22,6 +27,11 @@ protected:
 protected:
     HICON m_hIcon;
 
+
+    bool    m_bEditUpdating = false; // 防止 SetWindowText 触发 OnEnChange 递归
+    CString m_curFolder;             // 你自己维护的“当前显示目录”
+
+
     // ✅ 这些在 cpp 里有实现，头文件也必须声明
     virtual BOOL OnInitDialog();
     afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
@@ -41,11 +51,31 @@ protected:
     afx_msg void OnBnClickedButton5();
     afx_msg void OnBnClickedButton6();
     afx_msg void OnBnClickedButton7();
+
+
     afx_msg void OnEnChangeEdit1();
+
+
     afx_msg void OnLbnSelchangeList1();
+    afx_msg void OnNMRClickList1(NMHDR* pNMHDR, LRESULT* pResult);
+
+
+    afx_msg void OnCtxSJL();
+    afx_msg void OnCtxOpen();
+    afx_msg void OnCtxProperties();
+    afx_msg void OnCtxRename();
+    afx_msg void OnCtxCopy();
+    afx_msg void OnCtxMoveTo();
+
 
     afx_msg void OnNMDblclkList1(NMHDR* pNMHDR, LRESULT* pResult);
 
 
+    afx_msg void OnSize(UINT nType, int cx, int cy);
+
+
+
     DECLARE_MESSAGE_MAP()
+public:
+    afx_msg void OnLvnItemchangedList1(NMHDR* pNMHDR, LRESULT* pResult);
 };

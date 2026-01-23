@@ -4,7 +4,7 @@
 #include "afxdialogex.h"
 
 #include <afxdlgs.h>   // CFolderPickerDialog
-#include "SJL.h"       // 你的解包函数：SJL::Unpack(...)
+#include "SJL.h"       // 解包函数：SJL::Unpack
 
 IMPLEMENT_DYNAMIC(CDialog2, CDialogEx)
 
@@ -45,7 +45,7 @@ void CDialog2::OnBnClickedButton1()
     }
 }
 
-// Button2：直接解包到源文件夹（立刻执行）
+// Button2：直接解包到源文件夹
 void CDialog2::OnBnClickedButton2()
 {
     for (auto& sjl : m_sjlFiles)

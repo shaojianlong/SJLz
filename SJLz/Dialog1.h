@@ -1,6 +1,9 @@
 ﻿#pragma once
 #include "afxdialogex.h"
 #include <vector>
+#include <ShObjIdl.h>
+#include <atlbase.h>
+
 
 class Dialog1 : public CDialogEx
 {
@@ -17,7 +20,7 @@ public:
 protected:
     virtual void DoDataExchange(CDataExchange* pDX);
     virtual BOOL OnInitDialog();
-    virtual void OnOK(); 
+    //virtual void OnOK(); 
 
 
     CEdit m_edit1;
@@ -33,4 +36,6 @@ protected:
 
 
     DECLARE_MESSAGE_MAP()
+public:
+    afx_msg void OnBnClickedOk();
 };

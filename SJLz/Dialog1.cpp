@@ -22,6 +22,7 @@ void Dialog1::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(Dialog1, CDialogEx)
     ON_BN_CLICKED(IDC_BUTTON1, &Dialog1::OnBnClickedButton1)
+    ON_BN_CLICKED(IDOK, &Dialog1::OnBnClickedOk)
 END_MESSAGE_MAP()
 
 BOOL Dialog1::OnInitDialog()
@@ -31,7 +32,60 @@ BOOL Dialog1::OnInitDialog()
     return TRUE;
 }
 
-void Dialog1::OnOK()
+
+
+
+static bool PickFolderForceFileSystem(HWND owner, const CString& initFolder, CString& outFolder)
+{
+    CComPtr<IFileDialog> pfd;
+    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd));
+    if (FAILED(hr)) return false;
+
+    DWORD opts = 0;
+    pfd->GetOptions(&opts);
+    pfd->SetOptions(opts | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST);
+
+    // 设置初始目录（可选）
+    if (!initFolder.IsEmpty())
+    {
+        CComPtr<IShellItem> psi;
+        hr = SHCreateItemFromParsingName(initFolder, nullptr, IID_PPV_ARGS(&psi));
+        if (SUCCEEDED(hr)) pfd->SetFolder(psi);
+    }
+
+    hr = pfd->Show(owner);
+    if (hr == HRESULT_FROM_WIN32(ERROR_CANCELLED)) return false;
+    if (FAILED(hr)) return false;
+
+    CComPtr<IShellItem> item;
+    if (FAILED(pfd->GetResult(&item))) return false;
+
+    PWSTR psz = nullptr;
+    if (FAILED(item->GetDisplayName(SIGDN_FILESYSPATH, &psz)) || !psz) return false;
+
+    outFolder = psz;
+    CoTaskMemFree(psz);
+    outFolder.Trim();
+    return !outFolder.IsEmpty();
+}
+
+
+
+void Dialog1::OnBnClickedButton1()
+{
+    CString init = m_outFolder.IsEmpty() ? m_baseFolder : m_outFolder;
+
+    CString chosen;
+    if (PickFolderForceFileSystem(this->GetSafeHwnd(), init, chosen))
+    {
+        m_outFolder = chosen;
+        AfxMessageBox(_T("已选择输出文件夹：") + m_outFolder);
+    }
+}
+
+
+
+void Dialog1::OnBnClickedOk()
 {
     CString name;
     m_edit1.GetWindowText(name);
@@ -43,16 +97,31 @@ void Dialog1::OnOK()
         return;
     }
 
-    // 输出：源文件夹\name.SJL
-    std::wstring outFile = std::wstring(m_baseFolder) + L"\\" + std::wstring(name) + L".SJL";
+    // ✅ 如果用户输入了 .SJL，自动去掉
+    if (name.Right(4).CompareNoCase(_T(".SJL")) == 0)
+        name = name.Left(name.GetLength() - 4);
 
-    // roots：选中的文件/文件夹完整路径
+    // ✅ 优先输出到 m_outFolder，否则输出到 m_baseFolder
+    CString outDir = m_outFolder;
+    if (outDir.IsEmpty())
+        outDir = m_baseFolder;
+
+    outDir.Trim();
+    if (outDir.IsEmpty())
+    {
+        AfxMessageBox(_T("输出目录为空，请重试。"));
+        return;
+    }
+
+    std::wstring outFile = std::wstring(outDir) + L"\\" + std::wstring(name) + L".SJL";
+
+    // ✅ roots：选中的文件/文件夹完整路径
     std::vector<std::wstring> roots;
     roots.reserve(m_selected.size());
-    for (auto& s : m_selected)
+    for (const auto& s : m_selected)
         roots.push_back((LPCWSTR)s);
 
-    // baseDir：源文件夹（当前显示目录）
+    // ✅ baseDir 仍然用源文件夹（用于生成相对路径）
     bool ok = SJL::Pack(roots, outFile, (LPCWSTR)m_baseFolder);
     if (!ok)
     {
@@ -61,21 +130,5 @@ void Dialog1::OnOK()
     }
 
     AfxMessageBox(_T("打包完成：") + CString(outFile.c_str()));
-    CDialogEx::OnOK(); // 关闭对话框
-}
-
-
-void Dialog1::OnBnClickedButton1()
-{
-    // 初始目录：优先上次选的，否则用源文件夹
-    CString init = m_outFolder.IsEmpty() ? m_baseFolder : m_outFolder;
-
-    CFolderPickerDialog dlg(init, OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST, this, 0);
-    if (dlg.DoModal() == IDOK)
-    {
-        m_outFolder = dlg.GetFolderPath();
-
-        // 可选：给用户一个提示（你也可以不提示）
-        // AfxMessageBox(_T("输出目录：") + m_outFolder);
-    }
+    CDialogEx::OnOK();
 }
