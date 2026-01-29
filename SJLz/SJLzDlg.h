@@ -75,6 +75,7 @@ protected:
     afx_msg void OnMenuNewFolder();
 
     afx_msg void OnMenuNewFile();
+    afx_msg void OnMenuExit();
 
 
 

@@ -104,6 +104,7 @@ BEGIN_MESSAGE_MAP(CSJLzDlg, CDialogEx)
 	ON_COMMAND(ID_32774, &CSJLzDlg::OnMenuProperties)
 	ON_COMMAND(ID_32775, &CSJLzDlg::OnMenuNewFolder)
 	ON_COMMAND(ID_32777, &CSJLzDlg::OnMenuNewFile)
+	ON_COMMAND(ID_32778, &CSJLzDlg::OnMenuExit)
 
 
 
@@ -877,5 +878,10 @@ void CSJLzDlg::OnMenuNewFile()
 		m_list1.EnsureVisible(found, FALSE);
 		m_list1.EditLabel(found); // ✅ 进入编辑
 	}
+}
+
+void CSJLzDlg::OnMenuExit()
+{
+	SendMessage(WM_CLOSE);   // 等同右上角“×”
 }
 
