@@ -19,6 +19,9 @@
 
 
 
+
+
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -84,6 +87,8 @@ BEGIN_MESSAGE_MAP(CSJLzDlg, CDialogEx)
 	ON_NOTIFY(NM_DBLCLK, IDC_LIST1, &CSJLzDlg::OnNMDblclkList1)
 	//ON_LBN_SELCHANGE(IDC_LIST1, &CSJLzDlg::OnLbnSelchangeList1)
 	ON_NOTIFY(NM_RCLICK, IDC_LIST1, &CSJLzDlg::OnNMRClickList1)
+	ON_NOTIFY(LVN_ENDLABELEDIT, IDC_LIST1, &CSJLzDlg::OnLvnEndlabeleditList1)
+
 
 
 	ON_COMMAND(ID_CTX_SJL, &CSJLzDlg::OnCtxSJL)
@@ -92,6 +97,13 @@ BEGIN_MESSAGE_MAP(CSJLzDlg, CDialogEx)
 	ON_COMMAND(ID_CTX_RENAME, &CSJLzDlg::OnCtxRename)
 	ON_COMMAND(ID_CTX_COPY, &CSJLzDlg::OnCtxCopy)
 	ON_COMMAND(ID_CTX_MOVETO, &CSJLzDlg::OnCtxMoveTo)
+
+	//菜单命令
+	ON_COMMAND(32771, &CSJLzDlg::OnMenuOpen)
+	ON_COMMAND(ID_32773, &CSJLzDlg::OnMenuDelete)
+	ON_COMMAND(ID_32774, &CSJLzDlg::OnMenuProperties)
+	ON_COMMAND(ID_32775, &CSJLzDlg::OnMenuNewFolder)
+	ON_COMMAND(ID_32777, &CSJLzDlg::OnMenuNewFile)
 
 
 
@@ -637,3 +649,233 @@ void CSJLzDlg::OnLvnItemchangedList1(NMHDR* pNMHDR, LRESULT* pResult)
 	// TODO: 在此添加控件通知处理程序代码
 	*pResult = 0;
 }
+
+
+//菜单烂
+void CSJLzDlg::OnMenuOpen()
+{
+	OnCtxOpen();  // 复用右键“打开”的逻辑
+}
+
+void CSJLzDlg::OnMenuDelete()
+{
+	OnBnClickedButton5();   // 复用 button5 的删除逻辑
+}
+
+void CSJLzDlg::OnMenuProperties()
+{
+	OnCtxProperties();   // 复用右键“属性”逻辑
+}
+
+
+
+void CSJLzDlg::OnLvnEndlabeleditList1(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	*pResult = FALSE; // 默认不接受（会回滚到原名）
+
+	auto* pDisp = reinterpret_cast<NMLVDISPINFO*>(pNMHDR);
+	if (!pDisp) return;
+
+	// 用户按 ESC 或没改名时，pszText 可能为空
+	if (!pDisp->item.pszText) return;
+
+	CString newName = pDisp->item.pszText;
+	newName.Trim();
+	if (newName.IsEmpty()) return;
+
+	// 禁止输入路径分隔符
+	if (newName.Find(_T('\\')) >= 0 || newName.Find(_T('/')) >= 0)
+	{
+		AfxMessageBox(_T("名称不能包含 \\ 或 /"));
+		return;
+	}
+
+	// 原始完整路径
+	CString oldPath;
+	if (!m_list1.GetItemPath(oldPath, pDisp->item.iItem) || oldPath.IsEmpty())
+		return;
+
+	// 父目录
+	wchar_t parentBuf[MAX_PATH] = { 0 };
+	wcsncpy_s(parentBuf, (LPCWSTR)oldPath, _TRUNCATE);
+	if (!PathRemoveFileSpecW(parentBuf))
+		return;
+
+	CString newPath;
+	newPath.Format(_T("%s\\%s"), parentBuf, newName.GetString());
+
+	// 没变化直接接受
+	if (newPath.CompareNoCase(oldPath) == 0)
+	{
+		*pResult = TRUE;
+		return;
+	}
+
+	// 同名冲突
+	if (PathFileExists(newPath))
+	{
+		AfxMessageBox(_T("已存在同名文件/文件夹，请换一个名字。"));
+		return;
+	}
+
+	// ✅ 真正重命名（文件/文件夹都适用）
+	if (!MoveFileExW(oldPath, newPath, MOVEFILE_COPY_ALLOWED))
+	{
+		DWORD err = GetLastError();
+		CString msg;
+		msg.Format(_T("重命名失败（错误码：%u）"), err);
+		AfxMessageBox(msg);
+		return;
+	}
+
+	*pResult = TRUE; // ✅ 接受编辑结果（不回滚）
+}
+
+void CSJLzDlg::OnMenuNewFolder()
+{
+	// 1) 获取当前显示目录
+	CString curFolder;
+	if (!m_list1.GetCurrentFolder(curFolder) || curFolder.IsEmpty())
+	{
+		AfxMessageBox(_T("当前不是有效的文件夹位置。"));
+		return;
+	}
+
+	// 2) 确认是文件系统目录（“此电脑”等虚拟位置不允许新建）
+	DWORD attr = GetFileAttributes(curFolder);
+	if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY))
+	{
+		AfxMessageBox(_T("当前不是磁盘文件夹，无法新建文件夹。"));
+		return;
+	}
+
+	// 3) 生成不冲突的文件夹名：新建文件夹 / 新建文件夹 (2) / ...
+	CString baseName = _T("新建文件夹");
+	CString newName = baseName;
+
+	CString fullPath;
+	fullPath.Format(_T("%s\\%s"), curFolder.GetString(), newName.GetString());
+
+	int n = 2;
+	while (PathFileExists(fullPath))
+	{
+		newName.Format(_T("%s (%d)"), baseName.GetString(), n++);
+		fullPath.Format(_T("%s\\%s"), curFolder.GetString(), newName.GetString());
+	}
+
+	// 4) 创建目录（更像系统行为）
+	int rc = SHCreateDirectoryEx(this->GetSafeHwnd(), fullPath, nullptr);
+	if (rc != ERROR_SUCCESS && rc != ERROR_FILE_EXISTS && rc != ERROR_ALREADY_EXISTS)
+	{
+		CString msg;
+		msg.Format(_T("新建文件夹失败（错误码：%d）"), rc);
+		AfxMessageBox(msg);
+		return;
+	}
+
+	// 5) 刷新列表
+	HRESULT hr = m_list1.DisplayFolder(curFolder);
+	if (FAILED(hr))
+		return;
+
+	// 6) 找到新建的那一项并进入原地重命名
+	int found = -1;
+	int itemCount = m_list1.GetItemCount();
+	for (int i = 0; i < itemCount; ++i)
+	{
+		CString p;
+		if (m_list1.GetItemPath(p, i) && !p.IsEmpty())
+		{
+			if (p.CompareNoCase(fullPath) == 0)
+			{
+				found = i;
+				break;
+			}
+		}
+	}
+
+	if (found >= 0)
+	{
+		m_list1.SetFocus();
+		m_list1.SetItemState(found, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+		m_list1.EnsureVisible(found, FALSE);
+		m_list1.EditLabel(found); // ✅ 像资源管理器一样立刻重命名
+	}
+}
+
+void CSJLzDlg::OnMenuNewFile()
+{
+	// 1) 当前目录
+	CString curFolder;
+	if (!m_list1.GetCurrentFolder(curFolder) || curFolder.IsEmpty())
+	{
+		AfxMessageBox(_T("当前不是有效的文件夹位置。"));
+		return;
+	}
+
+	DWORD attr = GetFileAttributes(curFolder);
+	if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY))
+	{
+		AfxMessageBox(_T("当前不是磁盘文件夹，无法新建文件。"));
+		return;
+	}
+
+	// 2) 生成不冲突的文件名：新建文件.txt / 新建文件 (2).txt / ...
+	CString baseName = _T("新建文件");
+	CString ext = _T(".txt");
+	CString fileName = baseName + ext;
+
+	CString fullPath;
+	fullPath.Format(_T("%s\\%s"), curFolder.GetString(), fileName.GetString());
+
+	int n = 2;
+	while (PathFileExists(fullPath))
+	{
+		fileName.Format(_T("%s (%d)%s"), baseName.GetString(), n++, ext.GetString());
+		fullPath.Format(_T("%s\\%s"), curFolder.GetString(), fileName.GetString());
+	}
+
+	// 3) 创建空文件
+	HANDLE h = CreateFile(fullPath, GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+		CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (h == INVALID_HANDLE_VALUE)
+	{
+		DWORD err = GetLastError();
+		CString msg;
+		msg.Format(_T("新建文件失败（错误码：%u）"), err);
+		AfxMessageBox(msg);
+		return;
+	}
+	CloseHandle(h);
+
+	// 4) 刷新列表
+	HRESULT hr = m_list1.DisplayFolder(curFolder);
+	if (FAILED(hr))
+		return;
+
+	// 5) 找到新建项并原地重命名（像资源管理器）
+	int found = -1;
+	int itemCount = m_list1.GetItemCount();
+	for (int i = 0; i < itemCount; ++i)
+	{
+		CString p;
+		if (m_list1.GetItemPath(p, i) && !p.IsEmpty())
+		{
+			if (p.CompareNoCase(fullPath) == 0)
+			{
+				found = i;
+				break;
+			}
+		}
+	}
+
+	if (found >= 0)
+	{
+		m_list1.SetFocus();
+		m_list1.SetItemState(found, LVIS_SELECTED | LVIS_FOCUSED,
+			LVIS_SELECTED | LVIS_FOCUSED);
+		m_list1.EnsureVisible(found, FALSE);
+		m_list1.EditLabel(found); // ✅ 进入编辑
+	}
+}
+

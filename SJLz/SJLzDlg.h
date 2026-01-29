@@ -67,6 +67,17 @@ protected:
     afx_msg void OnCtxCopy();
     afx_msg void OnCtxMoveTo();
 
+    afx_msg void OnMenuOpen();   // 菜单：打开（ID=32771）
+    afx_msg void OnMenuDelete();   // 复用Button5删除逻辑
+    afx_msg void OnMenuProperties();//复用属性
+
+    afx_msg void OnLvnEndlabeleditList1(NMHDR* pNMHDR, LRESULT* pResult);
+    afx_msg void OnMenuNewFolder();
+
+    afx_msg void OnMenuNewFile();
+
+
+
 
     afx_msg void OnNMDblclkList1(NMHDR* pNMHDR, LRESULT* pResult);
 
