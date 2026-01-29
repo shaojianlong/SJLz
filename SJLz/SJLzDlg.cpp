@@ -1,6 +1,5 @@
 ﻿
 // SJLzDlg.cpp: 实现文件
-//
 
 #include "pch.h"
 #include "framework.h"
@@ -13,6 +12,12 @@
 #include <shellapi.h> 
 #include <afxlayout.h>
 #include <Shlwapi.h>
+#include <shlobj.h>  
+#include <string>
+#pragma comment(lib, "Shell32.lib")
+#pragma comment(lib, "Shlwapi.lib")
+
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -347,8 +352,74 @@ void CSJLzDlg::OnBnClickedButton2()
 }
 void CSJLzDlg::OnBnClickedButton3() {}
 void CSJLzDlg::OnBnClickedButton4() {}
-void CSJLzDlg::OnBnClickedButton5() {}
-void CSJLzDlg::OnBnClickedButton6() {}
+void CSJLzDlg::OnBnClickedButton5()
+{
+	// 1) 收集选中项路径
+	std::vector<CString> paths;
+	int idx = -1;
+	while ((idx = m_list1.GetNextItem(idx, LVNI_SELECTED)) != -1)
+	{
+		CString p;
+		if (m_list1.GetItemPath(p, idx) && !p.IsEmpty())
+			paths.push_back(p);
+	}
+
+	// 2) 没选中：提示
+	if (paths.empty())
+	{
+		AfxMessageBox(_T("未选定内容"));
+		return;
+	}
+
+	// 3) 组织提示文本：把所有选中名称全部列出来
+	CString selNames;
+	selNames.Preallocate(4096);
+	for (size_t i = 0; i < paths.size(); ++i)
+	{
+		CString name = PathFindFileName(paths[i]); // 只显示文件/文件夹名
+		if (i > 0) selNames += _T("\r\n");
+		selNames += name;
+	}
+
+	CString msg;
+	msg.Format(_T("确定删除选定内容？\r\n\r\n%s"), selNames.GetString());
+
+	// 4) 确认框：默认选“取消”更安全
+	if (AfxMessageBox(msg, MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON2) != IDOK)
+		return;
+
+	// 5) 执行删除：放入回收站（资源管理器 Delete 行为）
+	std::wstring from;
+	from.reserve(32768);
+	for (const auto& p : paths)
+	{
+		from += (LPCWSTR)p;
+		from.push_back(L'\0');
+	}
+	from.push_back(L'\0'); // 双0结尾
+
+	SHFILEOPSTRUCTW op = { 0 };
+	op.hwnd = this->GetSafeHwnd();
+	op.wFunc = FO_DELETE;
+	op.pFrom = from.c_str();
+	op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION; // 我们自己确认过了
+
+	int ret = SHFileOperationW(&op);
+	if (ret != 0 || op.fAnyOperationsAborted)
+	{
+		// 失败 / 用户在系统对话框里取消
+		return;
+	}
+
+	// 6) 刷新当前目录列表
+	CString cur;
+	if (m_list1.GetCurrentFolder(cur) && !cur.IsEmpty())
+		m_list1.DisplayFolder(cur);
+}
+
+void CSJLzDlg::OnBnClickedButton6() {
+	OnCtxProperties();
+}
 
 void CSJLzDlg::OnBnClickedButton7()
 {
@@ -359,6 +430,7 @@ void CSJLzDlg::OnBnClickedButton7()
 		AfxMessageBox(_T("无法进入父目录"));
 	}
 }
+
 
 void CSJLzDlg::OnEnChangeEdit1() {}
 
@@ -442,7 +514,7 @@ void CSJLzDlg::OnCtxOpen()
 	}
 }
 
-#include <shellapi.h>
+
 
 void CSJLzDlg::OnCtxProperties()
 {
@@ -476,7 +548,6 @@ void CSJLzDlg::OnCtxRename()
 	m_list1.EditLabel(i);   // ✅ 进入原地重命名编辑
 }
 
-#include <shlobj.h>   // DROPFILES, CFSTR_PREFERREDDROPEFFECT, DROPEFFECT_COPY
 
 void CSJLzDlg::OnCtxCopy()
 {
